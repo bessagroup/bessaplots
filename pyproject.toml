@@ -14,6 +14,7 @@ classifiers = [
   "Programming Language :: Python :: 3"
 ]
 dependencies = [
+  "matplotlib>=3.10.8"
 ]
 description = "Plottting utilities for scientific papers within the Bessa Group"
 license = {text = "BSD-3-Clause"}
