@@ -210,3 +210,9 @@ __marimo__/
 
 # Mkdocs
 site/
+
+# Agents
+.agent/
+ARCHITECT_PLAN.md
+AUDIT_REPORT.md
+NEXT_PROMPT.md

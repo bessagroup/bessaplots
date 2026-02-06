@@ -9,7 +9,7 @@ xtick.major.width : 0.5
 xtick.minor.size : 1.5
 xtick.minor.width : 0.5
 xtick.minor.visible : True
-xtick.top : True
+xtick.top : False
 
 # Set y axis
 ytick.direction : in
@@ -18,7 +18,7 @@ ytick.major.width : 0.5
 ytick.minor.size : 1.5
 ytick.minor.width : 0.5
 ytick.minor.visible : True
-ytick.right : True
+ytick.right : False
 
 # Set line widths
 axes.linewidth : 0.5
@@ -29,8 +29,8 @@ lines.linewidth : 1.
 legend.frameon : False
 
 # Always save as 'tight'
-savefig.bbox : tight
-savefig.pad_inches : 0.05
+savefig.bbox : constrained
+savefig.pad_inches : 0.01
 
 # Use serif fonts
 font.family : serif
