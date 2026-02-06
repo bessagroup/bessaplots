@@ -94,6 +94,6 @@ plugins:
 
 nav:
     - 'index.md'
-    - 'getting_started.md'
+    - 'getting_started.ipynb'
     - 'api.md'
     - 'license.md'
