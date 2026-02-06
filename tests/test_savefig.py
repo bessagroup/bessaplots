@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import pytest
 
 from bessaplots.constants import PAPER_SIZES
-from bessaplots.savefig import set_size
+from bessaplots.save_figure import set_size
 
 
 @pytest.mark.parametrize("paper_size", ["letter", "a4", "b5"])
