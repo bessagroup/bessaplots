@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 # Local
-from bessaplots.typst_report import TypstReport
+from bessaplots.typst_report import TypstReport, _render
 
 #                                                        Authorship and Credits
 # =============================================================================
@@ -25,6 +25,17 @@ __status__ = "Stable"
 # ---------------------------------------------------------------------------
 
 
+def render(report: TypstReport) -> str:
+    """Convenience wrapper to call the module-level _render."""
+    return _render(
+        report._blocks,
+        report.title,
+        report.author,
+        report.date,
+        report.paper_size,
+    )
+
+
 @pytest.fixture
 def report():
     """Minimal report used across many tests."""
@@ -38,17 +49,17 @@ def report():
 
 def test_render_contains_title(report):
     """Title string appears in rendered output."""
-    assert "T" in report._render()
+    assert "T" in render(report)
 
 
 def test_render_contains_author(report):
     """Author string appears in rendered output."""
-    assert "A" in report._render()
+    assert "A" in render(report)
 
 
 def test_render_contains_date(report):
     """Explicit date appears in rendered output."""
-    assert "2026-01-01" in report._render()
+    assert "2026-01-01" in render(report)
 
 
 def test_render_default_date_is_today():
@@ -59,7 +70,7 @@ def test_render_default_date_is_today():
 
     today = datetime.date.today().isoformat()
     r = TypstReport(title="X", date=None)
-    assert today in r._render()
+    assert today in render(r)
 
 
 def test_render_empty_title_omits_align_block():
@@ -67,14 +78,14 @@ def test_render_empty_title_omits_align_block():
     Empty title omits the #align center block from the output.
     """
     r = TypstReport(title="")
-    rendered = r._render()
+    rendered = render(r)
     assert "#align(center)" not in rendered
 
 
 def test_render_empty_date_omits_date_line():
     """Empty date string omits the italic date line."""
     r = TypstReport(title="T", author="A", date="")
-    rendered = r._render()
+    rendered = render(r)
     assert "italic" not in rendered
 
 
@@ -89,7 +100,7 @@ def test_render_empty_date_omits_date_line():
 def test_render_paper_size_in_preamble(paper_size, expected):
     """Correct Typst paper name appears in the preamble."""
     r = TypstReport(paper_size=paper_size)
-    assert expected in r._render()
+    assert expected in render(r)
 
 
 def test_render_invalid_paper_size_raises():
@@ -106,7 +117,7 @@ def test_render_invalid_paper_size_raises():
 def test_add_paragraph_appears_in_render(report):
     """Added paragraph text is present in rendered output."""
     report.add_paragraph("Hello world.")
-    assert "Hello world." in report._render()
+    assert "Hello world." in render(report)
 
 
 def test_add_multiple_paragraphs_ordering():
@@ -114,7 +125,7 @@ def test_add_multiple_paragraphs_ordering():
     r = TypstReport()
     r.add_paragraph("First")
     r.add_paragraph("Second")
-    rendered = r._render()
+    rendered = render(r)
     assert rendered.index("First") < rendered.index("Second")
 
 
@@ -130,7 +141,7 @@ def test_add_figures_single_column(tmp_path, report):
     p = tmp_path / "fig.pdf"
     p.touch()
     report.add_figures([str(p)], columns=1)
-    assert "columns: 1," in report._render()
+    assert "columns: 1," in render(report)
 
 
 def test_add_figures_multiple_columns(tmp_path, report):
@@ -138,7 +149,7 @@ def test_add_figures_multiple_columns(tmp_path, report):
     p = tmp_path / "fig.pdf"
     p.touch()
     report.add_figures([str(p)], columns=2)
-    assert "columns: 2," in report._render()
+    assert "columns: 2," in render(report)
 
 
 def test_add_figures_fractional_columns(tmp_path, report):
@@ -148,7 +159,7 @@ def test_add_figures_fractional_columns(tmp_path, report):
     p = tmp_path / "fig.pdf"
     p.touch()
     report.add_figures([str(p)], columns=["1fr", "2fr"])
-    assert "columns: (1fr, 2fr)," in report._render()
+    assert "columns: (1fr, 2fr)," in render(report)
 
 
 def test_add_figures_path_resolved(tmp_path, report):
@@ -156,7 +167,7 @@ def test_add_figures_path_resolved(tmp_path, report):
     p = tmp_path / "fig.pdf"
     p.touch()
     report.add_figures([str(p)])
-    rendered = report._render()
+    rendered = render(report)
     assert p.resolve().as_posix() in rendered
 
 
@@ -165,7 +176,7 @@ def test_add_figures_with_caption(tmp_path, report):
     p = tmp_path / "fig.pdf"
     p.touch()
     report.add_figures([str(p)], caption="My Caption")
-    rendered = report._render()
+    rendered = render(report)
     assert "#figure(" in rendered
     assert "caption: [My Caption]" in rendered
 
@@ -175,7 +186,7 @@ def test_add_figures_without_caption(tmp_path, report):
     p = tmp_path / "fig.pdf"
     p.touch()
     report.add_figures([str(p)])
-    rendered = report._render()
+    rendered = render(report)
     assert "#grid(" in rendered
     assert "#figure(" not in rendered
 
@@ -185,7 +196,7 @@ def test_add_figures_custom_gutter(tmp_path, report):
     p = tmp_path / "fig.pdf"
     p.touch()
     report.add_figures([str(p)], gutter="5mm")
-    assert "column-gutter: 5mm," in report._render()
+    assert "column-gutter: 5mm," in render(report)
 
 
 def test_add_figures_empty_paths_raises(report):
@@ -250,7 +261,7 @@ def test_write_content_matches_render(tmp_path, report):
     """File content written by write() matches _render()."""
     out = tmp_path / "out.typ"
     report.write(str(out))
-    assert out.read_text(encoding="utf-8") == report._render()
+    assert out.read_text(encoding="utf-8") == render(report)
 
 
 # ---------------------------------------------------------------------------

@@ -28,6 +28,167 @@ _TYPST_PAPER_NAMES: dict[str, str] = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Private helpers (pure functions, no class dependency)
+# ---------------------------------------------------------------------------
+
+
+def _preamble(paper_size: str) -> str:
+    """Return the Typst ``#set`` directives for page, text, and paragraph.
+
+    Parameters
+    ----------
+    paper_size : str
+        Key into ``_TYPST_PAPER_NAMES`` (e.g. ``"a4"``, ``"letter"``).
+
+    Returns
+    -------
+    str
+        Multi-line string of Typst ``#set`` directives.
+    """
+    paper = _TYPST_PAPER_NAMES[paper_size]
+    return (
+        f'#set page(paper: "{paper}",'
+        f" margin: (x: 25mm, y: 25mm))\n"
+        '#set text(font: "New Computer Modern", size: 10pt)\n'
+        "#set par(justify: true)"
+    )
+
+
+def _title_block(title: str, author: str, date: str) -> str:
+    """Return a centred Typst block with the title, author, and date.
+
+    Lines for *author* and *date* are omitted when the corresponding
+    argument is falsy (empty string or ``None``).
+
+    Parameters
+    ----------
+    title : str
+        Report title rendered in bold 16 pt.
+    author : str
+        Author name rendered in 11 pt.  Omitted when empty.
+    date : str
+        Date string rendered in italic 10 pt.  Omitted when empty.
+
+    Returns
+    -------
+    str
+        Typst ``#align(center)[...]`` block.
+    """
+    lines = [
+        "#align(center)[",
+        f'  #text(size: 16pt, weight: "bold")[{title}]',
+    ]
+    if author:
+        lines.append("  #v(4pt)")
+        lines.append(f"  #text(size: 11pt)[{author}]")
+    if date:
+        lines.append("  #v(2pt)")
+        lines.append(f'  #text(size: 10pt, style: "italic")[{date}]')
+    lines.append("]")
+    return "\n".join(lines)
+
+
+def _figure_block(
+    paths: list[str | Path],
+    columns: int | list[str],
+    caption: str | None,
+    gutter: str,
+) -> str:
+    """Return a Typst grid of images, optionally wrapped in a figure.
+
+    When *caption* is ``None`` the images are placed in a bare
+    ``#grid`` block.  When a caption is provided the grid is wrapped
+    in a ``#figure`` block with automatic numbering.
+
+    Parameters
+    ----------
+    paths : list of str or Path
+        Paths to image files.  Each path is resolved to an absolute
+        POSIX path.
+    columns : int or list of str
+        Number of equal-width columns (``int``) or explicit Typst
+        column-width strings (e.g. ``["1fr", "2fr"]``).
+    caption : str or None
+        Figure caption.  ``None`` produces a bare grid.
+    gutter : str
+        Typst ``column-gutter`` value (e.g. ``"1em"``).
+
+    Returns
+    -------
+    str
+        Typst markup for the grid or figure block.
+    """
+    cols_str = (
+        str(columns)
+        if isinstance(columns, int)
+        else "(" + ", ".join(columns) + ")"
+    )
+    image_lines = [
+        f'  image("{Path(p).resolve().as_posix()}"),' for p in paths
+    ]
+    images = "\n".join(image_lines)
+
+    if caption is None:
+        return (
+            f"#grid(\n"
+            f"  columns: {cols_str},\n"
+            f"  column-gutter: {gutter},\n"
+            f"{images}\n"
+            f")"
+        )
+    else:
+        return (
+            f"#figure(\n"
+            f"  grid(\n"
+            f"    columns: {cols_str},\n"
+            f"    column-gutter: {gutter},\n"
+            + "\n".join(f"    {line.strip()}" for line in image_lines)
+            + f"\n  ),\n"
+            f"  caption: [{caption}],\n"
+            f")"
+        )
+
+
+def _render(
+    blocks: list[str],
+    title: str,
+    author: str,
+    date: str,
+    paper_size: str,
+) -> str:
+    """Assemble the full Typst source string from report components.
+
+    Combines the preamble, an optional title block, and all content
+    blocks into a single Typst source document.
+
+    Parameters
+    ----------
+    blocks : list of str
+        Content blocks (paragraphs, figure grids) in insertion order.
+    title : str
+        Report title.  Empty string omits the title block.
+    author : str
+        Author name for the title block.
+    date : str
+        Date string for the title block.
+    paper_size : str
+        Paper size key (e.g. ``"a4"``, ``"letter"``).
+
+    Returns
+    -------
+    str
+        Complete Typst source document ending with a newline.
+    """
+    parts: list[str] = [_preamble(paper_size)]
+    if title:
+        parts.append(_title_block(title, author, date))
+        parts.append("#v(1em)")
+    if blocks:
+        parts.append("\n\n".join(blocks))
+    return "\n\n".join(parts) + "\n"
+
+
 @dataclass
 class TypstReport:
     """
@@ -68,6 +229,14 @@ class TypstReport:
     _blocks: list[str] = field(default_factory=list, init=False, repr=False)
 
     def __post_init__(self) -> None:
+        """Validate *paper_size* and default *date* to today's ISO date.
+
+        Raises
+        ------
+        ValueError
+            If *paper_size* is not a recognised size in
+            ``PAPER_SIZES``.
+        """
         try:
             _ = PAPER_SIZES[self.paper_size.lower()]
         except KeyError:
@@ -137,9 +306,7 @@ class TypstReport:
         if isinstance(columns, list) and len(columns) == 0:
             raise ValueError("columns list must be non-empty")
 
-        self._blocks.append(
-            self._figure_block(paths, columns, caption, gutter)
-        )
+        self._blocks.append(_figure_block(paths, columns, caption, gutter))
 
     def write(self, path: str | Path) -> Path:
         """
@@ -157,7 +324,16 @@ class TypstReport:
             Absolute path to the written ``.typ`` file.
         """
         resolved = Path(path).with_suffix(".typ")
-        resolved.write_text(self._render(), encoding="utf-8")
+        resolved.write_text(
+            _render(
+                self._blocks,
+                self.title,
+                self.author,
+                self.date,
+                self.paper_size,
+            ),
+            encoding="utf-8",
+        )
         logger.info(f"Wrote Typst source: {resolved}")
         return resolved
 
@@ -232,80 +408,3 @@ class TypstReport:
         stem = Path(stem)
         typ_path = self.write(stem.with_suffix(".typ"))
         return self.compile(typ_path)
-
-    # ------------------------------------------------------------------
-    # Private helpers
-    # ------------------------------------------------------------------
-
-    def _render(self) -> str:
-        """Assemble the full Typst source string."""
-        parts: list[str] = [self._preamble()]
-        if self.title:
-            parts.append(self._title_block())
-            parts.append("#v(1em)")
-        if self._blocks:
-            parts.append("\n\n".join(self._blocks))
-        return "\n\n".join(parts) + "\n"
-
-    def _preamble(self) -> str:
-        """Return the Typst #set directives."""
-        paper = _TYPST_PAPER_NAMES[self.paper_size]
-        return (
-            f'#set page(paper: "{paper}",'
-            f" margin: (x: 25mm, y: 25mm))\n"
-            '#set text(font: "New Computer Modern", size: 10pt)\n'
-            "#set par(justify: true)"
-        )
-
-    def _title_block(self) -> str:
-        """Return the centred title/author/date block."""
-        lines = [
-            "#align(center)[",
-            f'  #text(size: 16pt, weight: "bold")[{self.title}]',
-        ]
-        if self.author:
-            lines.append("  #v(4pt)")
-            lines.append(f"  #text(size: 11pt)[{self.author}]")
-        if self.date:
-            lines.append("  #v(2pt)")
-            lines.append(f'  #text(size: 10pt, style: "italic")[{self.date}]')
-        lines.append("]")
-        return "\n".join(lines)
-
-    def _figure_block(
-        self,
-        paths: list[str | Path],
-        columns: int | list[str],
-        caption: str | None,
-        gutter: str,
-    ) -> str:
-        """Return a Typst grid (optionally wrapped in figure)."""
-        cols_str = (
-            str(columns)
-            if isinstance(columns, int)
-            else "(" + ", ".join(columns) + ")"
-        )
-        image_lines = [
-            f'  image("{Path(p).resolve().as_posix()}"),' for p in paths
-        ]
-        images = "\n".join(image_lines)
-
-        if caption is None:
-            return (
-                f"#grid(\n"
-                f"  columns: {cols_str},\n"
-                f"  column-gutter: {gutter},\n"
-                f"{images}\n"
-                f")"
-            )
-        else:
-            return (
-                f"#figure(\n"
-                f"  grid(\n"
-                f"    columns: {cols_str},\n"
-                f"    column-gutter: {gutter},\n"
-                + "\n".join(f"    {line.strip()}" for line in image_lines)
-                + f"\n  ),\n"
-                f"  caption: [{caption}],\n"
-                f")"
-            )
