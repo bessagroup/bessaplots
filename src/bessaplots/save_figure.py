@@ -108,7 +108,7 @@ class FigureSaver:
 
 def savefig(
     fig: plt.Figure,
-    name: str,
+    path: str,
     n_side_by_side=1,
     span_columns=False,
     height=0.8,
@@ -121,8 +121,9 @@ def savefig(
     ----------
     fig : plt.Figure
         The matplotlib figure object.
-        name : str
-        The name of the figure.
+    path : str
+        The storage location (including file name) for the figure.
+        The .pdf suffix is added automatically.
     n_side_by_side : int, optional
         How many figures will sit horizontally (1, 2, or 3).
         The default is 1.
@@ -144,13 +145,15 @@ def savefig(
         paper_size=paper_size,
     )
 
+    _path = Path(path).with_suffix(".pdf")
+
     # 5. Save with tight bounding box
     # pad_inches is tiny to ensure the figure maximizes the LaTeX slot
     fig.savefig(
-        f"{name}.pdf",
+        _path,
         format="pdf",
         bbox_inches="tight",
         pad_inches=0.01,
         transparent=True,
     )
-    logger.info(f"Saved figure: {name}.pdf")
+    logger.info(f"Saved figure: {_path}")

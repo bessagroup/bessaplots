@@ -51,7 +51,8 @@ def _preamble(paper_size: str) -> str:
         f'#set page(paper: "{paper}",'
         f" margin: (x: 25mm, y: 25mm))\n"
         '#set text(font: "New Computer Modern", size: 10pt)\n'
-        "#set par(justify: true)"
+        "#set par(justify: true)\n"
+        "#show figure.caption: set text(size: 8pt)"
     )
 
 
@@ -94,12 +95,16 @@ def _figure_block(
     columns: int | list[str],
     caption: str | None,
     gutter: str,
+    subcaptions: list[str] | None = None,
 ) -> str:
     """Return a Typst grid of images, optionally wrapped in a figure.
 
     When *caption* is ``None`` the images are placed in a bare
     ``#grid`` block.  When a caption is provided the grid is wrapped
     in a ``#figure`` block with automatic numbering.
+
+    When *subcaptions* is provided, each image is individually wrapped
+    in a ``figure()`` block with its own caption inside the grid.
 
     Parameters
     ----------
@@ -113,6 +118,10 @@ def _figure_block(
         Figure caption.  ``None`` produces a bare grid.
     gutter : str
         Typst ``column-gutter`` value (e.g. ``"1em"``).
+    subcaptions : list of str or None
+        Per-image captions.  When provided, each image is wrapped in
+        its own ``figure()`` block inside the grid.  Length must equal
+        ``len(paths)``.
 
     Returns
     -------
@@ -124,9 +133,15 @@ def _figure_block(
         if isinstance(columns, int)
         else "(" + ", ".join(columns) + ")"
     )
-    image_lines = [
-        f'  image("{Path(p).resolve().as_posix()}"),' for p in paths
-    ]
+    resolved = [Path(p).resolve().as_posix() for p in paths]
+
+    if subcaptions is not None:
+        image_lines = [
+            f'  figure(\n    image("{r}"),\n    caption: [{sc}],\n  ),'
+            for r, sc in zip(resolved, subcaptions, strict=True)
+        ]
+    else:
+        image_lines = [f'  image("{r}"),' for r in resolved]
     images = "\n".join(image_lines)
 
     if caption is None:
@@ -138,16 +153,63 @@ def _figure_block(
             f")"
         )
     else:
+        # Indent all image lines by 4 spaces for nesting inside
+        # #figure(grid(...))
+        inner_lines = "\n".join(f"    {line.strip()}" for line in image_lines)
         return (
             f"#figure(\n"
             f"  grid(\n"
             f"    columns: {cols_str},\n"
             f"    column-gutter: {gutter},\n"
-            + "\n".join(f"    {line.strip()}" for line in image_lines)
-            + f"\n  ),\n"
+            f"{inner_lines}\n"
+            f"  ),\n"
             f"  caption: [{caption}],\n"
             f")"
         )
+
+
+def _split_figure_blocks(
+    paths: list[str | Path],
+    columns: int | list[str],
+    caption: str | None,
+    gutter: str,
+    subcaptions: list[str] | None,
+    rows_per_page: int,
+) -> str:
+    """Split figures into multiple grids separated by page breaks.
+
+    Parameters
+    ----------
+    paths, columns, caption, gutter, subcaptions
+        Same as :func:`_figure_block`.
+    rows_per_page : int
+        Maximum number of rows per page.
+
+    Returns
+    -------
+    str
+        Typst markup with ``#pagebreak()`` between chunks.
+    """
+    n_cols = columns if isinstance(columns, int) else len(columns)
+    chunk_size = rows_per_page * n_cols
+    chunks = [
+        paths[i : i + chunk_size] for i in range(0, len(paths), chunk_size)
+    ]
+    sub_chunks = None
+    if subcaptions is not None:
+        sub_chunks = [
+            subcaptions[i : i + chunk_size]
+            for i in range(0, len(subcaptions), chunk_size)
+        ]
+
+    blocks = []
+    for idx, chunk in enumerate(chunks):
+        is_last = idx == len(chunks) - 1
+        sc = sub_chunks[idx] if sub_chunks is not None else None
+        cap = caption if is_last else None
+        blocks.append(_figure_block(chunk, columns, cap, gutter, sc))
+
+    return "\n\n#pagebreak()\n\n".join(blocks)
 
 
 def _render(
@@ -272,6 +334,8 @@ class TypstReport:
         columns: int | list[str] = 1,
         caption: str | None = None,
         gutter: str = "1em",
+        subcaptions: list[str] | None = None,
+        rows_per_page: int | None = None,
     ) -> None:
         """
         Add a grid of figures to the report.
@@ -293,11 +357,23 @@ class TypstReport:
         gutter : str, optional
             Typst ``column-gutter`` value (e.g. ``"1em"``, ``"5mm"``).
             The default is ``"1em"``.
+        subcaptions : list of str or None, optional
+            Per-figure captions.  When provided, each image is wrapped
+            in its own ``figure()`` block inside the grid.  The list
+            length must equal ``len(paths)``.  Can be combined with
+            *caption* for an overall grid caption.
+            The default is ``None``.
+        rows_per_page : int or None, optional
+            Maximum number of rows per page.  When provided, the
+            figures are split into multiple grids separated by
+            ``#pagebreak()``.  The caption (if any) is placed on the
+            last chunk only.  The default is ``None`` (no splitting).
 
         Raises
         ------
         ValueError
-            If ``paths`` is empty or ``columns`` is an integer <= 0.
+            If ``paths`` is empty, ``columns`` is an integer <= 0,
+            or ``subcaptions`` length does not match ``paths``.
         """
         if not paths:
             raise ValueError("paths must be non-empty")
@@ -305,8 +381,27 @@ class TypstReport:
             raise ValueError("columns must be a positive integer")
         if isinstance(columns, list) and len(columns) == 0:
             raise ValueError("columns list must be non-empty")
+        if subcaptions is not None and len(subcaptions) != len(paths):
+            raise ValueError(
+                f"subcaptions length ({len(subcaptions)}) must equal "
+                f"paths length ({len(paths)})"
+            )
 
-        self._blocks.append(_figure_block(paths, columns, caption, gutter))
+        if rows_per_page is not None:
+            self._blocks.append(
+                _split_figure_blocks(
+                    paths,
+                    columns,
+                    caption,
+                    gutter,
+                    subcaptions,
+                    rows_per_page,
+                )
+            )
+        else:
+            self._blocks.append(
+                _figure_block(paths, columns, caption, gutter, subcaptions)
+            )
 
     def write(self, path: str | Path) -> Path:
         """
@@ -372,7 +467,7 @@ class TypstReport:
         )
         try:
             result = subprocess.run(
-                ["typst", "compile", str(typ), str(pdf)],
+                ["typst", "compile", "--root", "/", str(typ), str(pdf)],
                 capture_output=True,
                 text=True,
             )

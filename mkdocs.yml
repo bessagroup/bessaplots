@@ -95,5 +95,6 @@ plugins:
 nav:
     - 'index.md'
     - 'getting_started.ipynb'
+    - 'typst_report.ipynb'
     - 'api.md'
     - 'license.md'

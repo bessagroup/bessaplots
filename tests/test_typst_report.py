@@ -229,6 +229,54 @@ def test_add_figures_empty_columns_list_raises(tmp_path, report):
         report.add_figures([str(p)], columns=[])
 
 
+def test_add_figures_subcaptions(tmp_path, report):
+    """subcaptions wraps each image in its own figure() block."""
+    p1 = tmp_path / "a.pdf"
+    p2 = tmp_path / "b.pdf"
+    p1.touch()
+    p2.touch()
+    report.add_figures(
+        [str(p1), str(p2)],
+        columns=2,
+        subcaptions=["Cap A", "Cap B"],
+    )
+    rendered = render(report)
+    assert "#grid(" in rendered
+    assert "caption: [Cap A]" in rendered
+    assert "caption: [Cap B]" in rendered
+    # No outer #figure since caption is None
+    assert "#figure(" not in rendered
+    # Inner figure() calls (without #) should be present
+    assert "figure(" in rendered
+
+
+def test_add_figures_subcaptions_with_caption(tmp_path, report):
+    """subcaptions + caption produces nested figure blocks."""
+    p1 = tmp_path / "a.pdf"
+    p2 = tmp_path / "b.pdf"
+    p1.touch()
+    p2.touch()
+    report.add_figures(
+        [str(p1), str(p2)],
+        columns=2,
+        caption="Overall",
+        subcaptions=["Cap A", "Cap B"],
+    )
+    rendered = render(report)
+    assert "#figure(" in rendered
+    assert "caption: [Overall]" in rendered
+    assert "caption: [Cap A]" in rendered
+    assert "caption: [Cap B]" in rendered
+
+
+def test_add_figures_subcaptions_length_mismatch_raises(tmp_path, report):
+    """subcaptions length != paths length raises ValueError."""
+    p = tmp_path / "fig.pdf"
+    p.touch()
+    with pytest.raises(ValueError, match="subcaptions length"):
+        report.add_figures([str(p)], subcaptions=["A", "B"])
+
+
 # ---------------------------------------------------------------------------
 # Group D — write()
 # ---------------------------------------------------------------------------
@@ -348,3 +396,84 @@ def test_save_returns_pdf_path(tmp_path, monkeypatch, report):
     stem = tmp_path / "report"
     pdf = report.save(str(stem))
     assert pdf.suffix == ".pdf"
+
+
+# ---------------------------------------------------------------------------
+# Group G — caption font size
+# ---------------------------------------------------------------------------
+
+
+def test_caption_font_size_8pt(report):
+    """Preamble sets figure captions to 8pt."""
+    rendered = render(report)
+    assert "#show figure.caption: set text(size: 8pt)" in rendered
+
+
+# ---------------------------------------------------------------------------
+# Group H — rows_per_page
+# ---------------------------------------------------------------------------
+
+
+def test_rows_per_page_splits_into_chunks(tmp_path, report):
+    """rows_per_page splits figures across page breaks."""
+    figs = []
+    for i in range(6):
+        p = tmp_path / f"fig{i}.pdf"
+        p.touch()
+        figs.append(str(p))
+
+    report.add_figures(figs, columns=2, rows_per_page=2)
+    rendered = render(report)
+    # 6 figures, 2 columns, 2 rows per page → 2 chunks (4 + 2)
+    assert rendered.count("#pagebreak()") == 1
+    assert rendered.count("#grid(") == 2
+
+
+def test_rows_per_page_caption_on_last_chunk(tmp_path, report):
+    """Caption appears only on the last chunk."""
+    figs = []
+    for i in range(4):
+        p = tmp_path / f"fig{i}.pdf"
+        p.touch()
+        figs.append(str(p))
+
+    report.add_figures(figs, columns=2, caption="My Caption", rows_per_page=1)
+    rendered = render(report)
+    # Only 1 caption in total (on the last chunk)
+    assert rendered.count("caption: [My Caption]") == 1
+    # The last chunk is a #figure, earlier ones are bare #grid
+    assert rendered.count("#figure(") == 1
+    assert rendered.count("#grid(") == 1  # bare grid for first chunk
+
+
+def test_rows_per_page_with_subcaptions(tmp_path, report):
+    """Subcaptions travel with their respective images."""
+    figs = []
+    for i in range(4):
+        p = tmp_path / f"fig{i}.pdf"
+        p.touch()
+        figs.append(str(p))
+
+    report.add_figures(
+        figs,
+        columns=2,
+        rows_per_page=1,
+        subcaptions=["A", "B", "C", "D"],
+    )
+    rendered = render(report)
+    assert "caption: [A]" in rendered
+    assert "caption: [D]" in rendered
+    assert rendered.count("#pagebreak()") == 1
+
+
+def test_rows_per_page_no_split_when_fits(tmp_path, report):
+    """No pagebreak when all figures fit in rows_per_page."""
+    figs = []
+    for i in range(4):
+        p = tmp_path / f"fig{i}.pdf"
+        p.touch()
+        figs.append(str(p))
+
+    report.add_figures(figs, columns=2, rows_per_page=5)
+    rendered = render(report)
+    assert "#pagebreak()" not in rendered
