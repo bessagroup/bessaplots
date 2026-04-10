@@ -28,6 +28,7 @@ def set_size(
     span_columns=False,
     height: float = 0.8,
     paper_size: str = "letter",
+    subplot_adjust: dict | None = None,
 ) -> plt.Figure:
     """
     Set figure size to fit in IEEE column layout.
@@ -46,6 +47,9 @@ def set_size(
         The default is 0.8.
     paper_size : str, optional
         The paper size ("letter", "a4", "b5"). The default is "letter".
+    subplot_adjust : dict, optional
+        Optional dictionary of subplot adjustments to pass to
+        `fig.subplots_adjust()`.
 
     Returns
     -------
@@ -77,6 +81,9 @@ def set_size(
 
     # 4. Apply dimensions and force 8pt font
     fig.set_size_inches(target_width, target_height)
+    if subplot_adjust is not None:
+        fig.subplots_adjust(**subplot_adjust)
+
     return fig
 
 
@@ -98,7 +105,7 @@ class FigureSaver:
         object.savefig(
             _path.with_suffix(".pdf"),
             format="pdf",
-            bbox_inches="tight",
+            bbox_inches=None,
             pad_inches=0.01,
             transparent=True,
             dpi=300,
