@@ -120,6 +120,7 @@ def savefig(
     span_columns=False,
     height=0.8,
     paper_size: str = "letter",
+    format: str = "pdf",
 ) -> None:
     """
     Saves a figure scaled exactly for an IEEE subfigure slot.
@@ -142,6 +143,8 @@ def savefig(
         The default is 0.8.
     paper_size : str, optional
         The paper size ("letter", "a4", "b5"). The default is "letter".
+    format : str, optional
+        The file format to save (e.g., "pdf", "png"). The default is "pdf".
     """
 
     fig = set_size(
@@ -152,13 +155,13 @@ def savefig(
         paper_size=paper_size,
     )
 
-    _path = Path(path).with_suffix(".pdf")
+    _path = Path(path).with_suffix(f".{format}")
 
     # 5. Save with tight bounding box
     # pad_inches is tiny to ensure the figure maximizes the LaTeX slot
     fig.savefig(
         _path,
-        format="pdf",
+        format=format,
         bbox_inches="tight",
         pad_inches=0.01,
         transparent=True,

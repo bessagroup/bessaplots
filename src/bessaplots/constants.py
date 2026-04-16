@@ -14,6 +14,10 @@ PAPER_SIZES = {
         "single_col_width": 185.0 / 72.27,  # ~2.56 inches (Estimated)
         "double_col_width": 387.0 / 72.27,  # ~5.35 inches (Estimated)
     },
+    "tudelft": {
+        "single_col_width": 362.77 / 72.27,  # ~5.02 inches (from \textwidth)
+        "double_col_width": 362.77 / 72.27,  # same (single-column document)
+    },
 }
 
 # Legacy constants (defaults to letter)

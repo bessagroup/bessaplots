@@ -1,0 +1,50 @@
+# === Figure size ===
+# 17cm * 0.75 hscale = 12.75cm = 5.02in
+# Golden ratio height by default
+figure.figsize : 5.02, 3.10
+figure.dpi : 150            # only affects screen preview; PGF output is vector
+
+# === X axis ===
+xtick.direction : in
+xtick.major.size : 3
+xtick.major.width : 0.5
+xtick.minor.size : 1.5
+xtick.minor.width : 0.5
+xtick.minor.visible : True
+xtick.top : False
+xtick.labelsize : 9
+
+# === Y axis ===
+ytick.direction : in
+ytick.major.size : 3
+ytick.major.width : 0.5
+ytick.minor.size : 1.5
+ytick.minor.width : 0.5
+ytick.minor.visible : True
+ytick.right : False
+ytick.labelsize : 9
+
+# === Line widths ===
+axes.linewidth : 0.5
+grid.linewidth : 0.5
+lines.linewidth : 1.
+
+# === Font sizes (matching 10pt scrbook body) ===
+font.size : 10              # base fallback
+font.family : serif
+axes.labelsize : 10
+axes.titlesize : 10
+legend.fontsize : 9
+
+# === Legend ===
+legend.frameon : False
+
+# === Savefig ===
+savefig.bbox : tight
+savefig.pad_inches : 0.05
+
+# === PGF backend ===
+pgf.texsystem : pdflatex
+pgf.rcfonts : False       # don't setup fonts from rc parameters; LaTeX does this
+pgf.preamble : \usepackage[utf8]{inputenc}\usepackage[T1]{fontenc}\usepackage{microtype}\usepackage{siunitx}
+text.usetex: True        # use LaTeX to render all text
