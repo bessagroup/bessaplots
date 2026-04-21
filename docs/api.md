@@ -4,6 +4,10 @@ This section contains the API reference for the `bessaplots` library. It provide
 
 ::: bessaplots
 
+## FigureGrid
+
+::: bessaplots.FigureGrid
+
 ## TypstReport
 
 ::: bessaplots.TypstReport

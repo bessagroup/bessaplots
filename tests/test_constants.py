@@ -7,7 +7,7 @@ from bessaplots.constants import (
 
 def test_paper_sizes_keys():
     """Verify that all expected paper sizes are present."""
-    expected_keys = {"letter", "a4", "b5"}
+    expected_keys = {"letter", "a4", "b5", "tudelft"}
     assert set(PAPER_SIZES.keys()) == expected_keys
 
 
@@ -20,7 +20,7 @@ def test_paper_sizes_dimensions():
         assert isinstance(dims["double_col_width"], float)
         assert dims["single_col_width"] > 0
         assert dims["double_col_width"] > 0
-        assert dims["double_col_width"] > dims["single_col_width"]
+        assert dims["double_col_width"] >= dims["single_col_width"]
 
 
 def test_legacy_constants_match_letter():
