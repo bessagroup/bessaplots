@@ -181,10 +181,12 @@ class FigureGrid:
         label and tick labels.
     ylabel_margin : float
         Extra width (inches) reserved for the y-axis label and tick
-        labels on the first column (only used when ``sharey=True``).
-        Must be ``>= xtick_overhang`` — the first column's left edge
-        relies on ``ylabel_margin`` to also cover the first x-tick
-        label's overhang.
+        labels.  When ``sharey=True`` it is reserved on the first
+        column only (the rest have their y-axis stripped); when
+        ``sharey=False`` it is reserved on every column.  Must be
+        ``>= xtick_overhang`` — the first column's left edge relies
+        on ``ylabel_margin`` to also cover the first x-tick label's
+        overhang.
     xlabel_margin : float
         Extra height (inches) reserved for the x-axis label and tick
         labels on the bottom row (only used when ``sharex=True``).
@@ -259,7 +261,9 @@ class FigureGrid:
         # so the "extra" width the first column gets over the rest
         # is ylabel_margin - xtick_overhang.  This keeps axes widths
         # identical across columns while preserving the textwidth
-        # invariant.
+        # invariant.  When sharey=False every column keeps its own
+        # y-axis, so widths are equal and each column reserves
+        # ylabel_margin on its left side (see ``apply``).
         if self.sharey and self.n_figures > 1:
             effective_ylabel = self.ylabel_margin - self.xtick_overhang
             self._rest_width = (W - effective_ylabel) / self.n_figures
@@ -274,9 +278,18 @@ class FigureGrid:
                 f'for {self.n_figures} figures in {W:.2f}" total width'
             )
 
-        self._axes_width = self._rest_width - 2 * (
-            _FRAME_PAD + self.xtick_overhang
-        )
+        # Axes width is measured from a column whose left edge
+        # reserves xtick_overhang (sharey=True non-first columns).
+        # When sharey=False, every column's left edge reserves
+        # ylabel_margin instead, so subtract that extra space.
+        if self.sharey:
+            self._axes_width = self._rest_width - 2 * (
+                _FRAME_PAD + self.xtick_overhang
+            )
+        else:
+            self._axes_width = self._rest_width - (
+                2 * _FRAME_PAD + self.ylabel_margin + self.xtick_overhang
+            )
         if self._axes_width <= 0:
             raise ValueError(
                 "Computed axes width is non-positive; "
@@ -384,12 +397,15 @@ class FigureGrid:
 
         fig.set_size_inches(w, h)
 
-        # Left margin: first column's left side is covered by
-        # ylabel_margin; every other left side needs xtick_overhang.
-        if self.sharey and first_column:
-            left_frac = (self.ylabel_margin + _FRAME_PAD) / w
-        else:
+        # Left margin: the first column (sharey=True) and every
+        # column (sharey=False) keep their y-axis and need
+        # ylabel_margin on the left.  Non-first columns with
+        # sharey=True have their y-axis stripped and only need
+        # xtick_overhang to cover the first x-tick label's overhang.
+        if self.sharey and not first_column:
             left_frac = (_FRAME_PAD + self.xtick_overhang) / w
+        else:
+            left_frac = (self.ylabel_margin + _FRAME_PAD) / w
 
         # Bottom margin
         if self.sharex and not last_row:
@@ -510,8 +526,8 @@ def savefig(
     fig.savefig(
         _path,
         format=format,
-        bbox_inches="tight",
-        pad_inches=0.01,
+        bbox_inches=fig.bbox_inches,
+        pad_inches=0.0,
         transparent=True,
     )
     logger.info(f"Saved figure: {_path}")

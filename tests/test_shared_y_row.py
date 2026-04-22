@@ -276,6 +276,62 @@ def test_sharey_false_textwidth_fractions_equal():
     assert fracs[0] == pytest.approx(fracs[1], abs=1e-10)
 
 
+def test_sharey_false_reserves_ylabel_margin_every_column():
+    """Every column's left edge reserves ylabel_margin when sharey=False."""
+    grid = FigureGrid(n_figures=2, sharey=False)
+    for fc in [True, False]:
+        fig, ax = plt.subplots()
+        ax.set_ylabel("Fraction of targets")
+        ax.plot([0, 1], [0, 1])
+        grid.apply(fig, first_column=fc)
+
+        pos = ax.get_position()
+        w = fig.get_size_inches()[0]
+        expected_left = (grid.ylabel_margin + _FRAME_PAD) / w
+        assert pos.x0 == pytest.approx(expected_left, abs=1e-6)
+        plt.close(fig)
+
+
+def test_sharey_false_axes_width_matches_formula():
+    """axes_width = col_width - ylabel - xtick_overhang - 2*FRAME_PAD."""
+    grid = FigureGrid(n_figures=2, sharey=False)
+    expected = grid.rest_width - (
+        2 * _FRAME_PAD + grid.ylabel_margin + grid.xtick_overhang
+    )
+    assert grid.axes_width == pytest.approx(expected, abs=1e-10)
+
+
+def test_sharey_false_axes_width_equal_across_columns():
+    """Actual axes rectangle is the same width for all columns."""
+    grid = FigureGrid(n_figures=3, sharey=False)
+    widths = []
+    for fc in [True, False, False]:
+        fig, ax = plt.subplots()
+        ax.set_ylabel("Label")
+        ax.plot([0, 1], [0, 1])
+        grid.apply(fig, first_column=fc)
+        bbox = ax.get_position()
+        widths.append(fig.get_size_inches()[0] * bbox.width)
+        plt.close(fig)
+
+    for w in widths[1:]:
+        assert w == pytest.approx(widths[0], abs=1e-6)
+
+
+def test_sharey_false_axes_width_matches_reported():
+    """The reported axes_width matches the actual axes rectangle width."""
+    grid = FigureGrid(n_figures=2, sharey=False)
+    fig, ax = plt.subplots()
+    ax.set_ylabel("Label")
+    ax.plot([0, 1], [0, 1])
+    grid.apply(fig, first_column=True)
+
+    bbox = ax.get_position()
+    actual = fig.get_size_inches()[0] * bbox.width
+    assert actual == pytest.approx(grid.axes_width, abs=1e-6)
+    plt.close(fig)
+
+
 # ── sharex ───────────────────────────────────────────────────────────
 
 
