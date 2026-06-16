@@ -1,8 +1,10 @@
+import shutil
+
 import matplotlib.pyplot as plt
 import pytest
 
 from bessaplots.constants import PAPER_SIZES
-from bessaplots.save_figure import set_size
+from bessaplots.save_figure import FigureSaver, set_size
 
 
 @pytest.mark.parametrize("paper_size", ["letter", "a4", "b5"])
@@ -65,3 +67,58 @@ def test_set_size_case_insensitive():
     expected_width = PAPER_SIZES["letter"]["single_col_width"] * 0.98
     assert width == pytest.approx(expected_width, abs=0.01)
     plt.close(fig)
+
+
+# ── FigureSaver tests ──────────────────────────────────────────────────
+
+
+@pytest.fixture(autouse=True)
+def _reset_figure_saver_format():
+    yield
+    FigureSaver.format = "pdf"
+
+
+def test_figure_saver_default_format():
+    """Default format should be pdf."""
+    assert FigureSaver.format == "pdf"
+
+
+def test_figure_saver_store_pdf(tmp_path):
+    """store() should create a .pdf file by default."""
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1])
+    FigureSaver.store(fig, str(tmp_path / "fig"))
+    assert (tmp_path / "fig.pdf").exists()
+    plt.close(fig)
+
+
+@pytest.mark.skipif(
+    not shutil.which("xelatex") and not shutil.which("pdflatex"),
+    reason="No LaTeX installation available",
+)
+def test_figure_saver_store_pgf(tmp_path):
+    """store() should create a .pgf file when format is pgf."""
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1])
+    FigureSaver.format = "pgf"
+    FigureSaver.store(fig, str(tmp_path / "fig"))
+    assert (tmp_path / "fig.pgf").exists()
+    plt.close(fig)
+
+
+def test_figure_saver_set_format():
+    """set_format() should update the class variable."""
+    FigureSaver.set_format("pgf")
+    assert FigureSaver.format == "pgf"
+
+
+def test_figure_saver_set_format_case_insensitive():
+    """set_format() should be case-insensitive."""
+    FigureSaver.set_format("PGF")
+    assert FigureSaver.format == "pgf"
+
+
+def test_figure_saver_set_format_invalid():
+    """set_format() should raise ValueError for unsupported formats."""
+    with pytest.raises(ValueError, match="Unsupported format"):
+        FigureSaver.set_format("invalid")

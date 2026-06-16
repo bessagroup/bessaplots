@@ -34,8 +34,17 @@ def read_styles_in_folders(root_path):
         Dictionary of stylesheets in the form of {style_name: rcParams}.
         Should be compatible with matplotlib's plt.style.library dictionary.
     """
+    # matplotlib >= 3.11 promoted `read_style_directory` to the public
+    # `matplotlib.style` namespace and dropped the `matplotlib.style.core`
+    # submodule; <= 3.10 only exposes it under `.core`. Prefer the public
+    # name and fall back to `.core` for older matplotlib.
+    read_style_directory = (
+        getattr(plt.style, "read_style_directory", None)
+        or plt.style.core.read_style_directory
+    )
+
     stylesheets = {}  # plt.style.library is a dictionary
     for folder, _, _ in os.walk(root_path):
-        new_stylesheets = plt.style.core.read_style_directory(folder)
+        new_stylesheets = read_style_directory(folder)
         stylesheets.update(new_stylesheets)
     return stylesheets
